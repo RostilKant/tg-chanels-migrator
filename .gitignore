@@ -1,0 +1,13 @@
+## .NET
+bin/
+obj/
+
+## Telegram session files - contain live login credentials, never commit these
+sessions/
+*.session
+
+## OS / editor cruft
+.vs/
+.vscode/
+*.user
+.DS_Store
