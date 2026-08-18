@@ -3,9 +3,12 @@
 A small interactive C# console tool for your own Telegram account:
 
 1. **Migrate** — logs a second Telegram account in and joins it to every channel/group
-   your main ("source") account is currently a member of.
-2. **Delete** — makes the source account leave every channel/group it *doesn't* own,
-   keeping only the ones it created.
+   your main ("source") account is a *member* of.
+2. **Delete** — makes the source account leave every channel/group it's a *member* of.
+
+Channels/groups the source account **created** are ignored by both operations: ownership
+is never transferred (Telegram's API doesn't support that), and they're never left or
+deleted — they're simply left alone.
 
 It talks to Telegram directly over MTProto (the same protocol the official apps use)
 via [WTelegramClient](https://github.com/wiz0u/WTelegramClient) — there's no bot involved,
@@ -42,7 +45,7 @@ The tool shows a menu:
 ```
 1) Log in source account (the one you're migrating FROM)
 2) List channels on the source account
-3) Migrate: log in a second account and join it to all source channels
+3) Migrate: log in a second account and join it to your non-owned source channels
 4) Delete: leave every source channel EXCEPT ones you created
 5) Quit
 ```
@@ -53,7 +56,8 @@ Typical flow:
    and your 2FA password if you have one. This is the account whose channels you're working with.
 2. **List channels** — sanity-check what was found, and which ones you're marked as the
    creator of (`OWNED = yes`).
-3. **Migrate** — prompts you to log in a *second* account (the destination). For each channel:
+3. **Migrate** — channels/groups you created are printed and skipped (ownership stays put).
+   For the rest, prompts you to log in a *second* account (the destination), then for each one:
    - Public channels are joined directly by username.
    - Private channels are joined via an invite link that the source account exports —
      this only works if the source account is the creator or an admin with "invite users"

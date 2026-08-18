@@ -100,14 +100,25 @@ static string Truncate(string s, int max) => s.Length <= max ? s : s[..(max - 1)
 
 static async Task MigrateAsync(TelegramAccountSession source)
 {
-    var channels = await ChannelService.GetChannelsAsync(source.Client);
-    if (channels.Count == 0)
+    var allChannels = await ChannelService.GetChannelsAsync(source.Client);
+    var owned = allChannels.Where(c => c.IsCreator).ToList();
+    var toMigrate = allChannels.Where(c => !c.IsCreator).ToList();
+
+    if (owned.Count > 0)
     {
-        Console.WriteLine("No channels to migrate.");
+        Console.WriteLine($"Ignoring {owned.Count} channel(s)/group(s) you created - ownership isn't transferred, so they're left as-is:");
+        foreach (var c in owned)
+            Console.WriteLine($"  - {c.Title}");
+        Console.WriteLine();
+    }
+
+    if (toMigrate.Count == 0)
+    {
+        Console.WriteLine("No non-owned channels to migrate.");
         return;
     }
 
-    Console.WriteLine($"About to join a second account to all {channels.Count} channel(s)/group(s) the source account is in.");
+    Console.WriteLine($"About to join a second account to {toMigrate.Count} channel(s)/group(s) the source account is a member of (not owner).");
     Console.Write("Continue? (yes/no): ");
     if (!IsYes(Console.ReadLine())) { Console.WriteLine("Cancelled."); return; }
 
@@ -120,16 +131,16 @@ static async Task MigrateAsync(TelegramAccountSession source)
     }
 
     int ok = 0, failed = 0;
-    for (var i = 0; i < channels.Count; i++)
+    for (var i = 0; i < toMigrate.Count; i++)
     {
-        var channel = channels[i];
-        Console.Write($"[{i + 1}/{channels.Count}] Joining \"{channel.Title}\"... ");
+        var channel = toMigrate[i];
+        Console.Write($"[{i + 1}/{toMigrate.Count}] Joining \"{channel.Title}\"... ");
         var (success, message) = await ChannelService.JoinChannelAsync(source.Client, target.Client, channel);
         Console.WriteLine(success ? $"OK ({message})" : $"SKIPPED ({message})");
         if (success) ok++; else failed++;
 
         // Be polite to Telegram's rate limits between joins.
-        if (i < channels.Count - 1)
+        if (i < toMigrate.Count - 1)
             await Task.Delay(TimeSpan.FromSeconds(2));
     }
 
