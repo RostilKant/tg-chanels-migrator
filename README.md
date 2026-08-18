@@ -19,28 +19,40 @@ because bots can't see or manage a user's channel list.
 > or flag accounts that join/leave many chats in a short time. The tool automatically waits out
 > `FLOOD_WAIT` errors, but for large numbers of channels a run can take a while.
 
-## Prerequisites
+## Step-by-step: running it end to end
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download)
-- A Telegram `api_id` / `api_hash` pair from https://my.telegram.org → **API development tools**
-  (free, tied to your phone number, needed to talk to Telegram's API at all)
+This walks through a full session from a clean checkout to a finished migration,
+with the exact commands and the prompts you'll see.
 
-## Setup
+**1. Install prerequisites and get API credentials**
+
+- Install the [.NET 8 SDK](https://dotnet.microsoft.com/download) (`dotnet --version` should print `8.x`).
+- Go to https://my.telegram.org, log in with the phone number of the account you're
+  migrating **from**, open **API development tools**, and create an app. Copy the
+  `api_id` and `api_hash` shown there.
+
+**2. Clone and build**
 
 ```bash
-git clone <this repo>
+git clone https://github.com/RostilKant/tg-chanels-migrator.git
 cd tg-chanels-migrator
-export TG_API_ID=123456          # optional: skips the prompt
-export TG_API_HASH=abcdef0123...  # optional: skips the prompt
+dotnet build
+```
+
+**3. Export your API credentials (optional but avoids retyping them)**
+
+```bash
+export TG_API_ID=123456
+export TG_API_HASH=abcdef0123456789abcdef0123456789
+```
+
+**4. Launch the tool**
+
+```bash
 dotnet run --project src/TgChannelsMigrator
 ```
 
-If you don't set `TG_API_ID` / `TG_API_HASH`, the tool will just ask for them the first time
-it needs them.
-
-## Usage
-
-The tool shows a menu:
+You'll land on the menu:
 
 ```
 1) Log in source account (the one you're migrating FROM)
@@ -48,25 +60,74 @@ The tool shows a menu:
 3) Migrate: log in a second account and join it to your non-owned source channels
 4) Delete: leave every source channel EXCEPT ones you created
 5) Quit
+Choose an option:
 ```
 
-Typical flow:
+**5. Log in the source account — choose `1`**
 
-1. **Log in source account** — enter the phone number, the login code Telegram sends you,
-   and your 2FA password if you have one. This is the account whose channels you're working with.
-2. **List channels** — sanity-check what was found, and which ones you're marked as the
-   creator of (`OWNED = yes`).
-3. **Migrate** — channels/groups you created are printed and skipped (ownership stays put).
-   For the rest, prompts you to log in a *second* account (the destination), then for each one:
-   - Public channels are joined directly by username.
-   - Private channels are joined via an invite link that the source account exports —
-     this only works if the source account is the creator or an admin with "invite users"
-     rights on that channel. Channels the source can't export an invite for are skipped
-     and printed out so you can join them manually.
-4. **Delete** — lists every channel/group the source account is a member of but did **not**
-   create, and every one it will keep (the ones it created). You must type an exact
-   confirmation phrase (`delete N`) before anything is left. This only ever calls "leave chat" —
-   it never deletes a channel outright, and channels you created are never touched by this option.
+```
+--- Logging in [source] account ---
+[source] Phone number, international format (e.g. +15551234567): +15551234567
+[source] Login code Telegram just sent you: 12345
+[source] Two-factor password (leave blank if none):
+[source] Logged in as Jane Doe (@janedoe, id=123456789)
+```
+
+The session is saved to `sessions/source.session`, so you won't have to log in again
+on future runs unless the session expires.
+
+**6. Check what was found — choose `2`**
+
+Prints a table of every channel/group, flagging which ones you created
+(`OWNED = yes`) so you know what Migrate/Delete will and won't touch.
+
+**7. Migrate to a second account — choose `3`**
+
+```
+Ignoring 2 channel(s)/group(s) you created - ownership isn't transferred, so they're left as-is:
+  - My Own Channel
+  - My Own Group
+
+About to join a second account to 14 channel(s)/group(s) the source account is a member of (not owner).
+Continue? (yes/no): yes
+
+--- Logging in [target] account ---
+[target] Phone number, international format (e.g. +15551234567): +15559876543
+[target] Login code Telegram just sent you: 54321
+[target] Logged in as Jane's Second Account (@janedoe2, id=987654321)
+
+[1/14] Joining "Some Public Channel"... OK (joined via public username)
+[2/14] Joining "Private Group I'm in"... SKIPPED (private channel and source account can't export an invite link (not admin/creator) - join it manually)
+...
+Migration finished: 11 joined, 3 skipped.
+```
+
+Any "SKIPPED" channel needs to be joined manually with the target account (you weren't
+an admin there, so the tool couldn't generate an invite link for it).
+
+**8. Clean up the source account — choose `4`**
+
+```
+This will make the source account LEAVE 14 channel(s)/group(s) it doesn't own:
+  - Some Public Channel
+  - Private Group I'm in
+  ...
+
+It will KEEP 2 channel(s)/group(s) you created:
+  - My Own Channel
+  - My Own Group
+
+Type "delete 14" to confirm: delete 14
+[1/14] Leaving "Some Public Channel"... OK
+...
+Done: left 14 channel(s), 0 failed.
+```
+
+You must type the confirmation phrase exactly (including the count) or nothing happens.
+This step is independent of Migrate — you can run it before, after, or without ever migrating.
+
+**9. Quit — choose `5`** (or just re-run `dotnet run --project src/TgChannelsMigrator` later;
+logged-in sessions persist between runs).
 
 ## Login sessions
 
