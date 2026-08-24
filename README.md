@@ -2,13 +2,15 @@
 
 A small interactive C# console tool for your own Telegram account:
 
-1. **Migrate** — logs a second Telegram account in and joins it to every channel/group
+1. **Migrate** — logs a second Telegram account in and joins it to every **channel**
    your main ("source") account is a *member* of.
-2. **Delete** — makes the source account leave every channel/group it's a *member* of.
+2. **Delete** — makes the source account leave every **channel** it's a *member* of.
 
-Channels/groups the source account **created** are ignored by both operations: ownership
-is never transferred (Telegram's API doesn't support that), and they're never left or
-deleted — they're simply left alone.
+Both operations only ever touch **channels**. **Groups are never touched** by either
+operation — join, leave, and ownership transfer for groups are left entirely up to you
+to handle manually. Channels the source account **created** are also ignored by both
+operations: ownership is never transferred (Telegram's API doesn't support that), and
+they're never left or deleted — they're simply left alone.
 
 It talks to Telegram directly over MTProto (the same protocol the official apps use)
 via [WTelegramClient](https://github.com/wiz0u/WTelegramClient) — there's no bot involved,
@@ -57,8 +59,8 @@ You'll land on the menu:
 ```
 1) Log in source account (the one you're migrating FROM)
 2) List channels on the source account
-3) Migrate: log in a second account and join it to your non-owned source channels
-4) Delete: leave every source channel EXCEPT ones you created
+3) Migrate: log in a second account and join it to your non-owned channels
+4) Delete: leave every non-owned channel (groups are never touched)
 5) Quit
 Choose an option:
 ```
@@ -88,7 +90,12 @@ Ignoring 2 channel(s)/group(s) you created - ownership isn't transferred, so the
   - My Own Channel
   - My Own Group
 
-About to join a second account to 14 channel(s)/group(s) the source account is a member of (not owner).
+Ignoring 3 group(s) - Migrate only handles channels, groups are left as-is:
+  - Some Group I'm In
+  - Another Group
+  - Family Chat
+
+About to join a second account to 14 channel(s) the source account is a member of (not owner).
 Continue? (yes/no): yes
 
 --- Logging in [target] account ---
@@ -97,25 +104,32 @@ Continue? (yes/no): yes
 [target] Logged in as Jane's Second Account (@janedoe2, id=987654321)
 
 [1/14] Joining "Some Public Channel"... OK (joined via public username)
-[2/14] Joining "Private Group I'm in"... SKIPPED (private channel and source account can't export an invite link (not admin/creator) - join it manually)
+[2/14] Joining "Private Channel I'm in"... SKIPPED (private channel and source account can't export an invite link (not admin/creator) - join it manually)
 ...
 Migration finished: 11 joined, 3 skipped.
 ```
 
 Any "SKIPPED" channel needs to be joined manually with the target account (you weren't
-an admin there, so the tool couldn't generate an invite link for it).
+an admin there, so the tool couldn't generate an invite link for it). Groups printed
+under "Ignoring ... group(s)" aren't touched at all — join them with the target account
+yourself.
 
 **8. Clean up the source account — choose `4`**
 
 ```
-This will make the source account LEAVE 14 channel(s)/group(s) it doesn't own:
+This will make the source account LEAVE 14 channel(s) it doesn't own:
   - Some Public Channel
-  - Private Group I'm in
+  - Private Channel I'm in
   ...
 
 It will KEEP 2 channel(s)/group(s) you created:
   - My Own Channel
   - My Own Group
+
+It will also leave 3 non-owned group(s) untouched (Delete only handles channels):
+  - Some Group I'm In
+  - Another Group
+  - Family Chat
 
 Type "delete 14" to confirm: delete 14
 [1/14] Leaving "Some Public Channel"... OK

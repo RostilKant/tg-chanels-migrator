@@ -22,8 +22,8 @@ try
         Console.WriteLine("Menu:");
         Console.WriteLine("  1) Log in source account (the one you're migrating FROM)");
         Console.WriteLine("  2) List channels on the source account");
-        Console.WriteLine("  3) Migrate: log in a second account and join it to all source channels");
-        Console.WriteLine("  4) Delete: leave every source channel EXCEPT ones you created");
+        Console.WriteLine("  3) Migrate: log in a second account and join it to your non-owned channels");
+        Console.WriteLine("  4) Delete: leave every non-owned channel (groups are never touched)");
         Console.WriteLine("  5) Quit");
         Console.Write("Choose an option: ");
         var choice = Console.ReadLine()?.Trim();
@@ -106,12 +106,21 @@ static async Task MigrateAsync(TelegramAccountSession source)
 {
     var allChannels = await ChannelService.GetChannelsAsync(source.Client);
     var owned = allChannels.Where(c => c.IsCreator).ToList();
-    var toMigrate = allChannels.Where(c => !c.IsCreator).ToList();
+    var groups = allChannels.Where(c => !c.IsCreator && c.IsMegagroup).ToList();
+    var toMigrate = allChannels.Where(c => !c.IsCreator && !c.IsMegagroup).ToList();
 
     if (owned.Count > 0)
     {
         Console.WriteLine($"Ignoring {owned.Count} channel(s)/group(s) you created - ownership isn't transferred, so they're left as-is:");
         foreach (var c in owned)
+            Console.WriteLine($"  - {c.Title}");
+        Console.WriteLine();
+    }
+
+    if (groups.Count > 0)
+    {
+        Console.WriteLine($"Ignoring {groups.Count} group(s) - Migrate only handles channels, groups are left as-is:");
+        foreach (var c in groups)
             Console.WriteLine($"  - {c.Title}");
         Console.WriteLine();
     }
@@ -122,7 +131,7 @@ static async Task MigrateAsync(TelegramAccountSession source)
         return;
     }
 
-    Console.WriteLine($"About to join a second account to {toMigrate.Count} channel(s)/group(s) the source account is a member of (not owner).");
+    Console.WriteLine($"About to join a second account to {toMigrate.Count} channel(s) the source account is a member of (not owner).");
     Console.Write("Continue? (yes/no): ");
     if (!IsYes(Console.ReadLine())) { Console.WriteLine("Cancelled."); return; }
 
@@ -155,23 +164,31 @@ static async Task MigrateAsync(TelegramAccountSession source)
 static async Task DeleteNonOwnedAsync(TelegramAccountSession source)
 {
     var channels = await ChannelService.GetChannelsAsync(source.Client);
-    var toLeave = channels.Where(c => !c.IsCreator).ToList();
+    var toLeave = channels.Where(c => !c.IsCreator && !c.IsMegagroup).ToList();
     var toKeep = channels.Where(c => c.IsCreator).ToList();
+    var groups = channels.Where(c => !c.IsCreator && c.IsMegagroup).ToList();
 
     if (toLeave.Count == 0)
     {
-        Console.WriteLine("Nothing to do - every channel/group you're in was created by you.");
+        Console.WriteLine("Nothing to do - no non-owned channels found (groups are never touched by this option).");
         return;
     }
 
     Console.WriteLine();
-    Console.WriteLine($"This will make the source account LEAVE {toLeave.Count} channel(s)/group(s) it doesn't own:");
+    Console.WriteLine($"This will make the source account LEAVE {toLeave.Count} channel(s) it doesn't own:");
     foreach (var c in toLeave)
         Console.WriteLine($"  - {c.Title}");
     Console.WriteLine();
     Console.WriteLine($"It will KEEP {toKeep.Count} channel(s)/group(s) you created:");
     foreach (var c in toKeep)
         Console.WriteLine($"  - {c.Title}");
+    if (groups.Count > 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine($"It will also leave {groups.Count} non-owned group(s) untouched (Delete only handles channels):");
+        foreach (var c in groups)
+            Console.WriteLine($"  - {c.Title}");
+    }
 
     Console.WriteLine();
     Console.Write($"Type \"delete {toLeave.Count}\" to confirm: ");
