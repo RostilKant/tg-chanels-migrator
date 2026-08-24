@@ -136,6 +136,14 @@ Each account's login session is cached in `sessions/source.session` and `session
 These files are equivalent to being logged into that Telegram account — **never commit or share
 them**; `.gitignore` already excludes the whole `sessions/` folder.
 
+## Logs
+
+The console only shows this tool's own menu and progress output. WTelegramClient's own
+low-level connection chatter (`Sending MsgContainer`, `Receiving RpcResult`, ...) is written
+instead to `logs/telegram.log` (created on startup, one line per event with a timestamp and
+level). Useful if you need to troubleshoot a connection issue, otherwise safe to ignore or
+delete — it's gitignored like `sessions/`.
+
 ## Project layout
 
 ```
@@ -144,4 +152,5 @@ src/TgChannelsMigrator/
   TelegramAccountSession.cs  Login flow (console prompts) + session handling
   ChannelService.cs          List / join / leave channels, FLOOD_WAIT handling
   ChannelInfo.cs             Plain data record for a channel
+  TelegramLogger.cs          Redirects WTelegramClient's protocol logs to logs/telegram.log
 ```

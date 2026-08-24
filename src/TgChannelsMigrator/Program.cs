@@ -1,11 +1,15 @@
 using TgChannelsMigrator;
 
+const string logPath = "logs/telegram.log";
+TelegramLogger.ConfigureFileLogging(logPath);
+
 Console.WriteLine("=== Telegram Channels Migrator ===");
 Console.WriteLine("Moves your channel memberships to another Telegram account,");
 Console.WriteLine("and can clean up channels you don't own.");
 Console.WriteLine();
 Console.WriteLine("You'll need an api_id/api_hash from https://my.telegram.org (\"API development tools\").");
 Console.WriteLine("Set them once via TG_API_ID / TG_API_HASH env vars, or you'll be prompted for them.");
+Console.WriteLine($"(Telegram's own connection logs are written to {logPath}, not the console.)");
 Console.WriteLine();
 
 TelegramAccountSession? source = null;
