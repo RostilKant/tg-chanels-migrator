@@ -12,6 +12,12 @@ Console.WriteLine("Set them once via TG_API_ID / TG_API_HASH env vars, or you'll
 Console.WriteLine($"(Telegram's own connection logs are written to {logPath}, not the console.)");
 Console.WriteLine();
 
+var joinDelay = GetDelayFromEnv("TG_JOIN_DELAY_SECONDS", defaultSeconds: 15);
+var leaveDelay = GetDelayFromEnv("TG_LEAVE_DELAY_SECONDS", defaultSeconds: 5);
+Console.WriteLine($"Delay between joins: {joinDelay.TotalSeconds:0}s, between leaves: {leaveDelay.TotalSeconds:0}s");
+Console.WriteLine("(override with TG_JOIN_DELAY_SECONDS / TG_LEAVE_DELAY_SECONDS env vars)");
+Console.WriteLine();
+
 TelegramAccountSession? source = null;
 
 try
@@ -42,12 +48,12 @@ try
 
             case "3":
                 if (!EnsureLoggedIn(source)) break;
-                await MigrateAsync(source!);
+                await MigrateAsync(source!, joinDelay);
                 break;
 
             case "4":
                 if (!EnsureLoggedIn(source)) break;
-                await DeleteNonOwnedAsync(source!);
+                await DeleteNonOwnedAsync(source!, leaveDelay);
                 break;
 
             case "5":
@@ -102,7 +108,7 @@ static async Task<List<ChannelInfo>> ListChannelsAsync(TelegramAccountSession so
 
 static string Truncate(string s, int max) => s.Length <= max ? s : s[..(max - 1)] + "…";
 
-static async Task MigrateAsync(TelegramAccountSession source)
+static async Task MigrateAsync(TelegramAccountSession source, TimeSpan joinDelay)
 {
     var allChannels = await ChannelService.GetChannelsAsync(source.Client);
     var owned = allChannels.Where(c => c.IsCreator).ToList();
@@ -177,14 +183,14 @@ static async Task MigrateAsync(TelegramAccountSession source)
 
         // Be polite to Telegram's rate limits between joins.
         if (i < toMigrate.Count - 1)
-            await Task.Delay(TimeSpan.FromSeconds(2));
+            await Task.Delay(joinDelay);
     }
 
     Console.WriteLine();
     Console.WriteLine($"Migration finished: {ok} joined, {failed} skipped.");
 }
 
-static async Task DeleteNonOwnedAsync(TelegramAccountSession source)
+static async Task DeleteNonOwnedAsync(TelegramAccountSession source, TimeSpan leaveDelay)
 {
     var channels = await ChannelService.GetChannelsAsync(source.Client);
     var toLeave = channels.Where(c => !c.IsCreator && !c.IsMegagroup).ToList();
@@ -232,11 +238,19 @@ static async Task DeleteNonOwnedAsync(TelegramAccountSession source)
         if (success) ok++; else failed++;
 
         if (i < toLeave.Count - 1)
-            await Task.Delay(TimeSpan.FromSeconds(1));
+            await Task.Delay(leaveDelay);
     }
 
     Console.WriteLine();
     Console.WriteLine($"Done: left {ok} channel(s), {failed} failed.");
+}
+
+static TimeSpan GetDelayFromEnv(string envVar, int defaultSeconds)
+{
+    var raw = Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrWhiteSpace(raw) && double.TryParse(raw, out var seconds) && seconds >= 0)
+        return TimeSpan.FromSeconds(seconds);
+    return TimeSpan.FromSeconds(defaultSeconds);
 }
 
 static bool IsYes(string? input) =>

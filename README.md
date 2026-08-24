@@ -48,6 +48,16 @@ export TG_API_ID=123456
 export TG_API_HASH=abcdef0123456789abcdef0123456789
 ```
 
+**Optional: tune the pacing.** Migrate waits `TG_JOIN_DELAY_SECONDS` (default **15s**) between
+joins, and Delete waits `TG_LEAVE_DELAY_SECONDS` (default **5s**) between leaves — Telegram
+rate-limits (`FLOOD_WAIT`) an account that joins/leaves too many chats too fast, and a longer
+delay makes hitting that less likely at the cost of a slower run. Override either:
+
+```bash
+export TG_JOIN_DELAY_SECONDS=30   # slower, safer for large migrations
+export TG_LEAVE_DELAY_SECONDS=5
+```
+
 **4. Launch the tool**
 
 ```bash
