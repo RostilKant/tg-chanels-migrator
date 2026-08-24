@@ -9,6 +9,9 @@ sessions/
 ## Runtime logs
 logs/
 
+## Migrate resume progress (per target account)
+progress/
+
 ## OS / editor cruft
 .vs/
 .vscode/

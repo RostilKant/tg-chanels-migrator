@@ -95,7 +95,7 @@ Ignoring 3 group(s) - Migrate only handles channels, groups are left as-is:
   - Another Group
   - Family Chat
 
-About to join a second account to 14 channel(s) the source account is a member of (not owner).
+About to join a second account to up to 14 channel(s) the source account is a member of (not owner).
 Continue? (yes/no): yes
 
 --- Logging in [target] account ---
@@ -103,16 +103,25 @@ Continue? (yes/no): yes
 [target] Login code Telegram just sent you: 54321
 [target] Logged in as Jane's Second Account (@janedoe2, id=987654321)
 
-[1/14] Joining "Some Public Channel"... OK (joined via public username)
-[2/14] Joining "Private Channel I'm in"... SKIPPED (private channel and source account can't export an invite link (not admin/creator) - join it manually)
+Skipping 6 channel(s) this target account already joined in a previous run.
+Joining 8 channel(s)...
+[1/8] Joining "Some Public Channel"... OK (joined via public username)
+[2/8] Joining "Private Channel I'm in"... SKIPPED (private channel and source account can't export an invite link (not admin/creator) - join it manually)
 ...
-Migration finished: 11 joined, 3 skipped.
+Migration finished: 5 joined, 3 skipped.
 ```
 
 Any "SKIPPED" channel needs to be joined manually with the target account (you weren't
 an admin there, so the tool couldn't generate an invite link for it). Groups printed
 under "Ignoring ... group(s)" aren't touched at all — join them with the target account
 yourself.
+
+**Resuming after a big FLOOD_WAIT.** Telegram can impose a long rate-limit wait (tens of
+minutes) after joining many channels back to back. The tool sleeps it out automatically,
+but if you'd rather stop and come back later, it's safe to interrupt (Ctrl+C) at any point —
+every successful join is recorded immediately to `progress/migrate-{targetAccountId}.json`.
+Just re-run and choose Migrate again: already-joined channels are skipped automatically, and
+only what's left gets attempted (still against the same target account/login).
 
 **8. Clean up the source account — choose `4`**
 
@@ -167,4 +176,5 @@ src/TgChannelsMigrator/
   ChannelService.cs          List / join / leave channels, FLOOD_WAIT handling
   ChannelInfo.cs             Plain data record for a channel
   TelegramLogger.cs          Redirects WTelegramClient's protocol logs to logs/telegram.log
+  MigrationProgress.cs       Tracks already-joined channels so Migrate can resume after a restart
 ```

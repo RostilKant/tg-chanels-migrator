@@ -107,7 +107,7 @@ static async Task MigrateAsync(TelegramAccountSession source)
     var allChannels = await ChannelService.GetChannelsAsync(source.Client);
     var owned = allChannels.Where(c => c.IsCreator).ToList();
     var groups = allChannels.Where(c => !c.IsCreator && c.IsMegagroup).ToList();
-    var toMigrate = allChannels.Where(c => !c.IsCreator && !c.IsMegagroup).ToList();
+    var candidates = allChannels.Where(c => !c.IsCreator && !c.IsMegagroup).ToList();
 
     if (owned.Count > 0)
     {
@@ -125,13 +125,13 @@ static async Task MigrateAsync(TelegramAccountSession source)
         Console.WriteLine();
     }
 
-    if (toMigrate.Count == 0)
+    if (candidates.Count == 0)
     {
         Console.WriteLine("No non-owned channels to migrate.");
         return;
     }
 
-    Console.WriteLine($"About to join a second account to {toMigrate.Count} channel(s) the source account is a member of (not owner).");
+    Console.WriteLine($"About to join a second account to up to {candidates.Count} channel(s) the source account is a member of (not owner).");
     Console.Write("Continue? (yes/no): ");
     if (!IsYes(Console.ReadLine())) { Console.WriteLine("Cancelled."); return; }
 
@@ -143,6 +143,21 @@ static async Task MigrateAsync(TelegramAccountSession source)
         return;
     }
 
+    var progress = MigrationProgress.Load(target.Me.id);
+    var alreadyJoined = candidates.Count(c => progress.IsJoined(c.Id));
+    var toMigrate = candidates.Where(c => !progress.IsJoined(c.Id)).ToList();
+
+    if (alreadyJoined > 0)
+        Console.WriteLine($"Skipping {alreadyJoined} channel(s) this target account already joined in a previous run.");
+
+    if (toMigrate.Count == 0)
+    {
+        Console.WriteLine("Nothing left to migrate - the target account is already in every eligible channel.");
+        return;
+    }
+
+    Console.WriteLine($"Joining {toMigrate.Count} channel(s)...");
+
     int ok = 0, failed = 0;
     for (var i = 0; i < toMigrate.Count; i++)
     {
@@ -150,7 +165,15 @@ static async Task MigrateAsync(TelegramAccountSession source)
         Console.Write($"[{i + 1}/{toMigrate.Count}] Joining \"{channel.Title}\"... ");
         var (success, message) = await ChannelService.JoinChannelAsync(source.Client, target.Client, channel);
         Console.WriteLine(success ? $"OK ({message})" : $"SKIPPED ({message})");
-        if (success) ok++; else failed++;
+        if (success)
+        {
+            ok++;
+            progress.MarkJoined(channel.Id);
+        }
+        else
+        {
+            failed++;
+        }
 
         // Be polite to Telegram's rate limits between joins.
         if (i < toMigrate.Count - 1)
